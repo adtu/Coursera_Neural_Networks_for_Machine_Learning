@@ -153,17 +153,20 @@ function ret = d_loss_by_d_model(model, data, wd_coefficient)
   hid_input = model.input_to_hid * data.inputs; % input to the hidden units, i.e. before the logistic. size: <number of hidden units> by <number of data cases>
   hid_output = logistic(hid_input); % output of the hidden units, i.e. after the logistic. size: <number of hidden units> by <number of data cases>
   class_input = model.hid_to_class * hid_output; % input to the components of the softmax. size: <number of classes, i.e. 10> by <number of data cases>
-
+  class_normalizer = log_sum_exp_over_rows(class_input); % log(sum(exp of class_input)) is what we subtract to get properly normalized log class probabilities. size: <1> by <number of data cases>
+  log_class_prob = class_input - repmat(class_normalizer, [size(class_input, 1), 1]); % log of probability of each class. size: <number of classes, i.e. 10> by <number of data cases>
+  class_prob = exp(log_class_prob); % probability of each class. Each column (i.e. each case) sums to 1. size: <number of classes, i.e. 10> by <number of data cases>
+  
   % Number of the data cases
   N = size(data.inputs, 2);
 
   % Gradient of the weights of hid_to_class. size: <number of classes i.e. 10> by <number of hidden units>
-  grad_hid_to_class = (class_input - data.targets) * transpose(hid_output) ./ N;
+  grad_hid_to_class = (class_prob - data.targets) * transpose(hid_output) ./ N;
   grad_wd = model.hid_to_class * wd_coefficient;
   ret.hid_to_class = grad_hid_to_class + grad_wd;
 
   % Gradient of the hidden units. size: <number of hidden units> by <number of data cases>
-  grad_hid_before_activation = transpose(model.hid_to_class) * (class_input - data.targets) .* hid_output .* (1 - hid_output)
+  grad_hid_before_activation = transpose(model.hid_to_class) * (class_prob - data.targets) .* hid_output .* (1 - hid_output)
 
   % Gradient of the weigths of input_to_hid. size: <number of hidden units> by <number of inputs i.e. 256>
   grad_input_to_hid = grad_hid_before_activation * transpose(data.inputs) ./ N;

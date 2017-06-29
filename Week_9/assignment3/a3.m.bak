@@ -158,8 +158,7 @@ function ret = d_loss_by_d_model(model, data, wd_coefficient)
   N = size(data.inputs, 2);
 
   % Gradient of the weights of hid_to_class. size: <number of classes i.e. 10> by <number of hidden units>
-  %grad_hid_to_class = (class_input - data.targets) * transpose(hid_output) ./ N;
-  grad_hid_to_class = (class_input - data.targets) * transpose(hid_output);
+  grad_hid_to_class = (class_input - data.targets) * transpose(hid_output) ./ N;
   grad_wd = model.hid_to_class * wd_coefficient;
   ret.hid_to_class = grad_hid_to_class + grad_wd;
 
@@ -167,10 +166,26 @@ function ret = d_loss_by_d_model(model, data, wd_coefficient)
   grad_hid_before_activation = transpose(model.hid_to_class) * (class_input - data.targets) .* hid_output .* (1 - hid_output)
 
   % Gradient of the weigths of input_to_hid. size: <number of hidden units> by <number of inputs i.e. 256>
-  %grad_input_to_hid = grad_hid_before_activation * transpose(data.inputs) ./ N;
-  grad_input_to_hid = grad_hid_before_activation * transpose(data.inputs);
+  grad_input_to_hid = grad_hid_before_activation * transpose(data.inputs) ./ N;
   grad_wd = model.input_to_hid * wd_coefficient;
   ret.input_to_hid = grad_input_to_hid + grad_wd;
+
+
+
+  % input data size
+  N = size(data.inputs, 2);
+  
+  % hidden to output gradient
+  output_delta = (class_prob - data.targets);
+  ret.hid_to_class = output_delta * hid_output' ./ N + wd_coefficient * model.hid_to_class;
+ 
+  % input to hidden gradient
+  error_derivated = model.hid_to_class'*output_delta .* hid_output .* (1 - hid_output);
+  ret.input_to_hid = error_derivated * data.inputs' ./ N + wd_coefficient * model.input_to_hid;
+
+
+
+
 
 end
 
